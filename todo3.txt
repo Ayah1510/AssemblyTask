@@ -1,0 +1,240 @@
+;TO DO 3
+
+;important:
+;some results may differ from the ones obtained by the method used in the given example(in todo5 pdf); because this program consider months with 31 days and febraury with 28days 
+;the difference is 5 days
+;it differs when multiplying the difference of years by 365 (in line 124)  
+
+;concept of the procedure:
+;first it will calculate the difference between the two years and change the difference into days(by multiplying 365)  ...(result1)
+;then it will change the entered month into days(by multiplying 30) and add it to the entered days                     ...(result2)
+;then it will change the local month into days and add it to the local days and also add it to (result1)               ...(result3)
+;finally it will do: (result3) - (result2). And the result will be the days between the two dates
+ 
+.model small 
+.stack 100h 
+
+
+.data 
+message1 db "Please enter the year: $"      
+message2 db "Please enter the month: $"          
+message3 db "Please enter the day: $"  
+message4 db "The total number of days is: $" 
+year db 5 
+     db 0 
+     db 5 dup (0) 
+month db 3 
+      db 0 
+      db 3 dup (0)   
+day db 3 
+    db 0 
+    db 3 dup (0)      
+result db 10 dup ('$')
+
+.code  
+newline macro 
+    mov dl,10     ;to print a new line
+    mov ah,2
+    int 21h
+    mov dl,13     ;for carriage return
+    mov ah,2
+    int 21h
+endm newline
+     
+.startup  
+mov ax, @data ; initialize data segment 
+mov ds, ax  
+
+mov ah,09     ;view message1 (Please enter the first binary number)
+Lea dx, message1 
+int 21h       
+
+newline
+
+mov ah, 0Ah   ; input of a string to DS:DX, fist byte is buffer size, second byte is number of chars actually read
+Lea dx, year
+int 21h  
+
+newline
+
+;to print message2
+mov ah,09    
+Lea dx, message2 
+int 21h       
+
+newline
+
+;to store the enterd month into month buff
+mov ah, 0Ah   
+Lea dx, month
+int 21h
+
+newline
+
+;to print message3
+mov ah,09    
+Lea dx, message3 
+int 21h       
+
+newline
+
+;to store the enterd month into month buff
+mov ah, 0Ah   
+Lea dx, day
+int 21h
+
+newline
+
+;the least year can be entered is 1841 because the registers are only 16 bit. So there is no need to consider cases for dates less than 4 digits
+mov al,year+2      ;to get the first digit from the year (the thousand)
+sub al,30h      
+mov ah,0
+mov cx,1000
+mul cx
+push ax 
+mov al,year+3      ;to get the second digit from the year (the hundred)
+sub al,30h
+mov ah,0
+mov cx,100 
+mul cx
+push ax 
+mov al,year+4      ;to get the third digit from the year (the tens)
+sub al,30h
+mov cl,10 
+mul cl
+push ax 
+mov al,year+5      ;to get the forth digit from the year (the ones)
+sub al,30h         
+mov ah,0
+;to add all the year digits together
+pop dx
+add ax,dx
+pop dx
+add ax,dx
+pop dx
+add ax,dx 
+push ax  
+
+;subtraction between the two years, then multiplying it by 365 to transfer it into days
+mov ah,2Ah   ;to get the system date
+int 21h  
+pop ax 
+sub cx,ax
+mov ax,cx
+mov cx,365
+mul cx 
+push ax
+
+;first it checks if the entered month consists of one or two digits and then transfer it into days then save it in the stack
+mov al,month+1
+cmp al,2
+je if  
+;if the month consists of one digit
+mov al,month+2
+sub al,30h
+mov ah,0 
+mov cx,30
+mul cx
+push ax
+jmp endif
+if: 
+;if the month consists of two digits
+mov al,month+2 
+sub al,30h     
+mov cl,10 
+mul cl
+push ax 
+mov al,month+3
+sub al,30h
+mov ah,0
+pop dx
+add ax,dx 
+mov cx,30
+mul cx
+push ax
+endif:
+
+;first it checks if the entered day consists of one or two digits
+mov al,day+1
+cmp al,2
+je if2 
+;if the day consists of one digit
+mov al,day+2
+sub al,30h
+mov ah,0 
+;adding the month with the day
+pop dx
+add ax,dx
+push ax
+jmp endif2
+if2:
+;if the day consists of two digits
+mov al,day+2 
+sub al,30h     
+mov cl,10 
+mul cl
+push ax 
+mov al,day+3
+sub al,30h
+mov ah,0 
+;adding the digits of the day together with the month value
+pop dx
+add ax,dx
+pop dx
+add ax,dx
+push ax
+endif2:
+
+;getting the local day(located in dl) and month(located in dh) then transfering the month into days and adding it to the days 
+mov ah,2Ah   ;to get the system date
+int 21h
+mov al,dh
+mov ah,0
+mov bl,dl 
+mov cx,30
+mul cx
+mov bh,0
+add ax,bx
+push ax
+
+;adding the local sum of days (from the month & the day) with the difference between the two years(in days) saved in the stack
+;then subtracting the previous sum from the sum of the entered day and month(in days)
+pop dx
+pop bx
+pop cx
+add dx,cx
+sub dx,bx 
+
+;changing the value of the resulted days from hexadecimal to decimal then save it into the buffer (result)
+mov ax,dx
+mov si,2
+mov cx,0
+mov bx,10
+change2dec: mov dx,0
+            div bx
+            add dl,30h
+            push dx
+            inc cx
+            cmp ax,9
+            jg change2dec
+mov si,0 
+add al,30h
+mov result[si],al
+save: pop ax
+      inc si
+      mov result[si],al
+      loop save     
+            
+mov ah,09    
+Lea dx, message4 
+int 21h 
+
+;printing the resulted days saved in the buffer on the screen
+mov ah,09    
+Lea dx, result 
+int 21h
+
+exit:
+mov ah, 4ch    ;return control to the operating system (exit to DOS)
+int 21h 
+end
